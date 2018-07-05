@@ -15,7 +15,10 @@ bullet p0 v0 = proc () -> do
   v <- constant v0 -< ()
   dp <- integral -< v
   p <- arr (uncurry (+)) <<< constant p0 &&& arr id -< dp
-  returnA -< Output p NoEvent
+  e <- edge <<< arr outOfRealm -< p
+  returnA -< Output p e
+  where
+    outOfRealm (x, y) = x > 100.0 || x < -100.0 || y > 100.0 || y < -100.0
 
 draw :: Output -> Picture
 draw o = uncurry Translate (pos o) $ Circle 4.0

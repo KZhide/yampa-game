@@ -24,15 +24,32 @@ main =
     mainSF
     (\(WorldState p bs) -> Pictures $ P.draw p : fmap B.draw bs )
 
+autoBullets :: SF B.Input [B.Output]
+autoBullets = proc i -> do
+  spawnEdge <- repeatedly 0.1 () -< i
+  c <- hold 0<<< count -< spawnEdge
+  spawnE <- arr (\(c, spawnEdge) -> spawnEdge `tag` (\bs -> bs ++ [B.bullet (0.0, 0.0) (30.0 * cos(fromIntegral c * 15.0 / 360.0 * 2.0 * pi), 30.0 * sin(fromIntegral c * 15.0 / 360.0 * 2.0 * pi))])) -< (c, spawnEdge)
+  rec
+    dList <- arr (fmap B.destroy) -< bos
+    dEdge <- edge <<< arr (any isEvent) -< dList
+    destroyE <- arr (\(l, e) -> tag e (killMatch l)) <<< first (arr (fmap B.destroy)) -< (bos, dEdge)
+    bos <- drpSwitchB [] -< (i, mergeBy (.) spawnE destroyE)
+  returnA -< bos
+  where
+    killMatch :: [Event ()] -> [B.Bullet] -> [B.Bullet]
+    killMatch [] l = l
+    killMatch (Event () : es) (x : xs) = killMatch es xs
+    killMatch (NoEvent : es) (x : xs) = x : killMatch es xs
+
 data WorldState = WorldState {pst :: P.Output, bsts :: [B.Output]}
 
 mainSF :: SF (Event G.Event) WorldState
 mainSF = proc e -> do
   rec
-    bst <- B.bullet (0.0, 0.0) (10.0, 0.0) -< ()
+    bsts <- autoBullets -< ()
     p <- P.player (0.0, 0.0) -< (P.Input e)
     spPressed <- hold False <<< arr (fmap (==G.Down)) <<< arr (>>= filterKey (G.SpecialKey G.KeySpace)) -< e
-  returnA -< WorldState p [bst]
+  returnA -< WorldState p bsts
   where
     filterKey k (G.EventKey k' st _ _) | k == k' = Event st
                                        | otherwise = NoEvent
