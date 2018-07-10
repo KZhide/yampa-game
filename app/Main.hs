@@ -13,6 +13,7 @@ import Control.Monad
 import qualified Player as P
 import qualified Bullet as B
 import qualified Enemy as E
+import qualified Stage as S
 import YampaGloss
 
 main :: IO ()
@@ -61,10 +62,11 @@ data WorldState = WorldState {pst :: P.Output, bsts :: [B.Output]}
 mainSF :: SF (Event G.Event) WorldState
 mainSF = proc e -> do
   rec
+    so <- S.stage1 -< ()
     p <- P.player (0.0, 0.0) -< (P.Input e)
     let enemyInput = E.Input (P.pos p)
-    eo <- E.enemy (0.0, 0.0) (0.0, 0.0) 300.0 -< enemyInput
-    let ebSpawn = E.bulletSpawn eo
+    eos <- drpSwitchB [] -< (enemyInput, S.eSpawn so)
+    let ebSpawn = foldr (mergeBy (++)) NoEvent (fmap E.bulletSpawn eos)
     let spawnFunE = fmap (++) ebSpawn
     bsts <- drpSwitchB [] -< ((), spawnFunE)
     spPressed <- hold False <<< arr (fmap (==G.Down)) <<< arr (>>= filterKey (G.SpecialKey G.KeySpace)) -< e

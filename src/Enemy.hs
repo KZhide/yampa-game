@@ -21,10 +21,9 @@ type Enemy = SF Input Output
 
 aimShot :: Time -> Float -> SF (Vec2, Vec2) (Event [B.Bullet])
 aimShot t s = proc (ePos, pPos) -> do
-  v <- arr ((s *^) . normalize . uncurry (-)) -< (pPos, ePos)
-  bs <- arr (return . uncurry B.bullet) -< (ePos, v)
+  b <- arr (uncurry (B.aimingBullet s)) -< (ePos, pPos)
   e <- repeatedly t () -< ()
-  ev <- arr (uncurry tag) -< (e, bs)
+  ev <- arr (uncurry tag) -< (e, [b])
   returnA -< ev
 
 enemy :: Vec2 -> Vec2 -> Time -> Enemy
@@ -33,7 +32,7 @@ enemy p0 v0 stay = proc i -> do
   dp <- integral -< v
   p <- arr (uncurry (+)) <<< constant p0 &&& arr id -< dp
   e <- edge <<< arr (>= stay) <<< time -< ()
-  ebs <- aimShot 0.3 10.0 <<< second (arr pPos) -< (p, i)
+  ebs <- aimShot 0.8 50.0 <<< second (arr pPos) -< (p, i)
   returnA -< Output p ebs e
   where
     outOfRealm (x, y) = x > 100.0 || x < -100.0 || y > 100.0 || y < -100.0
