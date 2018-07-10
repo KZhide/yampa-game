@@ -28,7 +28,7 @@ bulletSpawn = proc e -> do
   returnA -< bs
   where
     shotSF :: Bool -> SF a (Event [B.Bullet])
-    shotSF True = repeatedly 0.1 [B.bullet (0.0, 0.0) (0.0, 10.0)]
+    shotSF True = repeatedly 0.1 [B.simpleBullet (0.0, 0.0) (0.0, 10.0)]
     shotSF False = never
 
 player :: Vec2 -> Player

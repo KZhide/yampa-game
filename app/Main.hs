@@ -43,7 +43,7 @@ spawnSpiralBullets = proc () -> do
   c <- hold 0 <<< count -< spawnEdge
   let theta = fromIntegral c * 15.0 / 360.0 * 2.0 * pi
   let v = 30.0 *^ (cos theta, sin theta)
-  let bs = [B.bullet (0.0, 0.0) v]
+  let bs = [B.simpleBullet (0.0, 0.0) v]
   spawnE <- arr (uncurry tagWith) -< (bs, spawnEdge)
   returnA -< spawnE
 
@@ -61,9 +61,12 @@ data WorldState = WorldState {pst :: P.Output, bsts :: [B.Output]}
 mainSF :: SF (Event G.Event) WorldState
 mainSF = proc e -> do
   rec
-    eo <- E.enemy (0.0, 0.0) (0.0, 0.0) 300.0 <<< arr (E.Input . P.pos) -< p
-    bsts <- bullets -< ()
     p <- P.player (0.0, 0.0) -< (P.Input e)
+    let enemyInput = E.Input (P.pos p)
+    eo <- E.enemy (0.0, 0.0) (0.0, 0.0) 300.0 -< enemyInput
+    let ebSpawn = E.bulletSpawn eo
+    let spawnFunE = fmap (++) ebSpawn
+    bsts <- drpSwitchB [] -< ((), spawnFunE)
     spPressed <- hold False <<< arr (fmap (==G.Down)) <<< arr (>>= filterKey (G.SpecialKey G.KeySpace)) -< e
   returnA -< WorldState p bsts
   where
