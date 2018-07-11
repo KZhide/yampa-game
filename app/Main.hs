@@ -26,38 +26,26 @@ main =
     mainSF
     (\(WorldState p bs) -> Pictures $ P.draw p : fmap B.draw bs )
 
-destroyBullets :: SF [B.Output] (Event ([B.Bullet] -> [B.Bullet]))
-destroyBullets = proc bos -> do
-  dEvs <- arr (fmap B.destroy) -< bos
-  dEdge <- edge <<< arr (any isEvent) -< dEvs
-  ev <- arr (uncurry tagWith) <<< first (arr killMatch) -< (dEvs, dEdge)
-  returnA -< ev
+gatherDestroy :: [Event ()] -> Event ([a] -> [a])
+gatherDestroy evs | any isEvent evs = Event $ killMatch evs
+                  | otherwise = NoEvent
   where
-    killMatch :: [Event ()] -> [B.Bullet] -> [B.Bullet]
+    killMatch :: [Event ()] -> [a] -> [a]
     killMatch [] l = l
     killMatch (Event () : es) (x : xs) = killMatch es xs
     killMatch (NoEvent : es) (x : xs) = x : killMatch es xs
 
-spawnSpiralBullets :: SF () (Event [B.Bullet])
-spawnSpiralBullets = proc () -> do
-  spawnEdge <- repeatedly 0.1 () -< ()
-  c <- hold 0 <<< count -< spawnEdge
-  let theta = fromIntegral c * 15.0 / 360.0 * 2.0 * pi
-  let v = 30.0 *^ (cos theta, sin theta)
-  let bs = [B.simpleBullet (0.0, 0.0) v]
-  spawnE <- arr (uncurry tagWith) -< (bs, spawnEdge)
-  returnA -< spawnE
+killSpawn :: SF (a, Event [SF a b], [Event ()]) [b]
+killSpawn = proc (a, spawned, destroyed) -> do
+  bs <- drpSwitchB [] -< (a, mergeBy (.) (fmap (++) spawned) (gatherDestroy destroyed))
+  returnA -< bs
 
-bullets :: SF B.Input [B.Output]
-bullets = proc i -> do
-  spawnE <- spawnSpiralBullets -< ()
-  let spawnFunE = fmap (++) spawnE
-  rec
-    destroyE <- destroyBullets -< bos
-    bos <- drpSwitchB [] -< (i, mergeBy (.) spawnFunE destroyE)
-  returnA -< bos
+killParSpawn :: SF (a, [Event [SF a b]], [Event ()]) [b]
+killParSpawn = proc (a, pSpawned, destroyed) -> do
+  bs <- drpSwitchB [] -< (a, mergeBy (.) ((++) <$> foldr (mergeBy (++)) NoEvent pSpawned) (gatherDestroy destroyed))
+  returnA -< bs
 
-data WorldState = WorldState {pst :: P.Output, bsts :: [B.Output]}
+data WorldState = WorldState {pOutput :: P.Output, bOutput :: [B.Output]}
 
 mainSF :: SF (Event G.Event) WorldState
 mainSF = proc e -> do
@@ -65,14 +53,7 @@ mainSF = proc e -> do
     so <- S.stage1 -< ()
     p <- P.player (0.0, 0.0) -< (P.Input e)
     let enemyInput = E.Input (P.pos p)
-    eos <- drpSwitchB [] -< (enemyInput, S.eSpawn so)
-    let ebSpawn = foldr (mergeBy (++)) NoEvent (fmap E.bulletSpawn eos)
-    let spawnFunE = fmap (++) ebSpawn
-    bsts <- drpSwitchB [] -< ((), spawnFunE)
-    spPressed <- hold False <<< arr (fmap (==G.Down)) <<< arr (>>= filterKey (G.SpecialKey G.KeySpace)) -< e
-  returnA -< WorldState p bsts
-  where
-    filterKey k (G.EventKey k' st _ _) | k == k' = Event st
-                                       | otherwise = NoEvent
-    filterKey k _ = NoEvent
+    eos <- killSpawn -< (enemyInput, S.eSpawn so, fmap E.destroy eos)
+    bos <- killParSpawn -< ((), fmap E.bulletSpawn eos, fmap B.destroy bos)
+  returnA -< WorldState p bos
 

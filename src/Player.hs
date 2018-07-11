@@ -1,6 +1,6 @@
 {-# LANGUAGE Arrows #-}
 --module Player (PlayerState, player, playerVelocity, drawEntity) where
-module Player (player, Input(Input), Output(Output, pos, shot), draw) where
+module Player (player, Input(Input), Output(..), draw) where
 
 import FRP.Yampa
 import Graphics.Gloss

@@ -26,6 +26,16 @@ aimShot t s = proc (ePos, pPos) -> do
   ev <- arr (uncurry tag) -< (e, [b])
   returnA -< ev
 
+spiralShot :: Time -> Float -> Float -> Float -> SF Vec2 (Event [B.Bullet])
+spiralShot span speed dTheta theta0 = proc p -> do
+  spawnEdge <- repeatedly span () -< ()
+  c <- hold 0 <<< count -< spawnEdge
+  let theta = fromIntegral c * dTheta + theta0
+  let v = speed *^ (cos theta, sin theta)
+  bs <- arr (return . uncurry B.simpleBullet) -< (p, v)
+  spawnE <- arr (uncurry tagWith) -< (bs, spawnEdge)
+  returnA -< spawnE
+
 enemy :: Vec2 -> Vec2 -> Time -> Enemy
 enemy p0 v0 stay = proc i -> do
   v <- constant v0 -< ()
@@ -34,8 +44,6 @@ enemy p0 v0 stay = proc i -> do
   e <- edge <<< arr (>= stay) <<< time -< ()
   ebs <- aimShot 0.8 50.0 <<< second (arr pPos) -< (p, i)
   returnA -< Output p ebs e
-  where
-    outOfRealm (x, y) = x > 100.0 || x < -100.0 || y > 100.0 || y < -100.0
 
 draw :: Output -> Picture
 draw o = uncurry Translate (pos o) $ Circle 4.0
