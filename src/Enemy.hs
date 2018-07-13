@@ -7,6 +7,7 @@ import FRP.Yampa
 import FRP.Yampa.Vector2
 import qualified Graphics.Gloss.Interface.IO.Game as G
 import qualified Bullet as B
+import YampaGlossInterface
 
 data Input = Input {
   pPos :: Vec2
@@ -28,4 +29,4 @@ enemy posSF bSpawnSF destroySF = proc i -> do
   returnA -< Output p bsEv dEv
 
 draw :: Output -> Picture
-draw o = (uncurry Translate . vector2XY . pos) o $ Color blue $ Circle 8.0
+draw o = (transV2 . pos) o $ Color blue $ Circle 8.0
