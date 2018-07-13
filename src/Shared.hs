@@ -1,12 +1,13 @@
 module Shared where
 
 import FRP.Yampa
+import FRP.Yampa.Vector2
 import Defs
 
-outOfArea :: Float -> Float -> Float -> Float -> SF (a, Vec2) (Event ())
-outOfArea l r t b = arr (f l r t b . snd) >>> edge
+outOfArea :: Float -> Float -> Float -> Float -> SF Vec2 (Event ())
+outOfArea l r t b = arr (f l r t b) >>> edge
   where
-    f l r t b (x, y) = x < l || x > r || y < b || y > t
+    f l r t b v = vector2X v < l || vector2X v > r || vector2Y v < b || vector2Y v > t
 
 infixl 2 |>
 (|>) :: (b -> SF a (b, Event ())) -> (b -> SF a (b, Event ())) -> b -> SF a (b, Event ())

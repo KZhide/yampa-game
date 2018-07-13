@@ -3,9 +3,12 @@
 module Player (player, Input(Input), Output(..), draw) where
 
 import FRP.Yampa
+import FRP.Yampa.VectorSpace
+import FRP.Yampa.Vector2
 import Graphics.Gloss
 import qualified Graphics.Gloss.Interface.IO.Game as G
 import Defs
+import YampaGlossInterface
 import qualified Bullet as B
 
 data Input = Input (Event G.Event) deriving (Eq, Show)
@@ -28,7 +31,7 @@ bulletSpawn = proc e -> do
   returnA -< bs
   where
     shotSF :: Bool -> SF a (Event [B.Bullet])
-    shotSF True = repeatedly 0.1 [B.simpleBullet (0.0, 0.0) (0.0, 10.0)]
+    shotSF True = repeatedly 0.1 [B.simpleBullet zeroVector (vector2 0.0 10.0)]
     shotSF False = never
 
 player :: Vec2 -> Player
@@ -40,20 +43,20 @@ player p0 = proc (Input e) -> do
   returnA -< Output p sp
 
 playerVelocity :: SF (Event G.Event) Vec2
-playerVelocity = (constant (0.0, 0.0) &&& arr pvChange) >>> impulseIntegral
+playerVelocity = (constant zeroVector &&& arr pvChange) >>> impulseIntegral
 
 draw :: Output -> Picture
-draw (Output (x, y) _) = Translate x y $ color red (Circle 12.0)
+draw (Output v _) = transV2 v $ color red (Circle 12.0)
 
 direction :: G.SpecialKey -> Vec2
-direction G.KeyUp = (0.0, 100.0)
-direction G.KeyDown = (0.0, -100.0)
-direction G.KeyLeft = (-100.0, 0.0)
-direction G.KeyRight = (100.0, 0.0)
-direction _ = (0.0, 0.0)
+direction G.KeyUp = vector2 0.0 100.0
+direction G.KeyDown = vector2 0.0 (-100.0)
+direction G.KeyLeft = vector2 (-100.0) 0.0
+direction G.KeyRight = vector2 100.0 0.0
+direction _ = zeroVector
 
 pvChange :: Event G.Event -> Event Vec2
 pvChange (Event (G.EventKey (G.SpecialKey k) G.Down _ _)) = Event (direction k)
-pvChange (Event (G.EventKey (G.SpecialKey k) G.Up _ _)) = Event (- direction k)
+pvChange (Event (G.EventKey (G.SpecialKey k) G.Up _ _)) = Event (negateVector $ direction k)
 pvChange (Event _) = NoEvent
 pvChange NoEvent = NoEvent

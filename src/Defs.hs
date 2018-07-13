@@ -1,3 +1,5 @@
 module Defs where
 
-type Vec2 = (Float, Float)
+import FRP.Yampa.Vector2
+
+type Vec2 = Vector2 Float

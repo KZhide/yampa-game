@@ -24,7 +24,7 @@ main =
     (InWindow "Yampa Example" (640, 480) (200, 320))
     white
     30
-    (WorldState (P.Output (0.0, 0.0) NoEvent) [] [])
+    (WorldState (P.Output zeroVector NoEvent) [] [])
     mainSF
     (\(WorldState p bos eos) -> Pictures $ P.draw p : fmap B.draw bos ++ fmap E.draw eos)
 
@@ -53,7 +53,7 @@ mainSF :: SF (Event G.Event) WorldState
 mainSF = proc e -> do
   rec
     so <- stage1 -< ()
-    p <- P.player (0.0, 0.0) -< (P.Input e)
+    p <- P.player zeroVector -< (P.Input e)
     let enemyInput = E.Input (P.pos p)
     eos <- killSpawn -< (enemyInput, S.eSpawn so, fmap E.destroy eos)
     bos <- killParSpawn -< ((), fmap E.bulletSpawn eos, fmap B.destroy bos)
