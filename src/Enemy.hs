@@ -19,11 +19,6 @@ data Output = Output {
 
 type Enemy = SF Input Output
 
-line :: Vec2 -> Vec2 -> Time -> SF Input Vec2
-line p0 p1 duration = proc _ -> do
-  dPos <- integral -< realToFrac (1.0 / duration) *^ (p1 - p0)
-  returnA <<< arr (uncurry (+)) -< (p0, dPos)
-
 enemy :: SF Input Vec2 -> SF (Input, Vec2) (Event [B.Bullet]) -> SF (Input, Vec2) (Event ()) -> Enemy
 enemy posSF bSpawnSF destroySF = proc i -> do
   p <- posSF -< i
