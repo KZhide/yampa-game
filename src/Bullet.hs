@@ -23,7 +23,7 @@ bullet posSF destroySF = proc i -> do
   returnA -< Output p dEv
 
 aimingBullet :: Float -> Vec2 ->  Vec2 -> Bullet
-aimingBullet speed src dst = simpleBullet src (speed *^ aim src dst)
+aimingBullet speed src dst = simpleBullet (speed *^ aim src dst) src
 
 simpleBullet :: Vec2 -> Vec2 -> SF Input Output
 simpleBullet v p0 = bullet (move v p0 >>> arr fst) (arr snd >>> outOfArea (-100.0) 100.0 100.0 (-100.0))

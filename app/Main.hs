@@ -13,7 +13,7 @@ import Control.Monad
 import qualified Player as P
 import qualified Bullet as B
 import qualified Enemy as E
-import qualified Stage as S
+import Stage
 import YampaGloss
 
 import Stages.Stage1
@@ -55,7 +55,7 @@ mainSF = proc e -> do
     so <- stage1 -< ()
     p <- P.player zeroVector -< (P.Input e)
     let enemyInput = E.Input (P.pos p)
-    eos <- killSpawn -< (enemyInput, S.eSpawn so, fmap E.destroy eos)
+    eos <- killSpawn -< (enemyInput, eSpawn so, fmap E.destroy eos)
     bos <- killParSpawn -< ((), fmap E.bulletSpawn eos, fmap B.destroy bos)
   returnA -< WorldState p bos eos
 

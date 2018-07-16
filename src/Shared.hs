@@ -1,3 +1,4 @@
+{-#LANGUAGE Arrows#-}
 module Shared where
 
 import FRP.Yampa
@@ -16,7 +17,7 @@ infixl 2 |=>>
 
 (|>>) :: SF a (b, Event ()) -> SF a (b, Event ()) -> SF a (b, Event ())
 sf1 |>> sf2 =
-  dSwitch (sf1 >>> identity &&& arr (uncurry tagWith)) (const sf2)
+  switch (sf1 >>> identity &&& arr (uncurry tagWith)) (const sf2)
 
 move :: Vec2 -> Vec2 -> SF a (Vec2, Event ())
 move v p = constant v >>> imIntegral p &&& constant NoEvent
@@ -24,6 +25,20 @@ move v p = constant v >>> imIntegral p &&& constant NoEvent
 moveDuring :: Time -> Vec2 -> Vec2 -> SF a (Vec2, Event ())
 moveDuring t v p = move v p >>> second (time >>> arr (>t) >>> edge)
 
+wait_ :: Time -> SF a (Event b, Event ())
+wait_ t = constant NoEvent &&& after t ()
 
-timeout :: Time -> SF a (Event ())
-timeout t = after t ()
+recur :: Int -> (b -> SF a (b, Event ())) -> (b -> SF a (b, Event ()))
+recur 0 sf = \b -> (b, Event ()) --> constant (b, NoEvent)
+recur n sf = sf |=>> recur (n-1) sf
+
+recur_ :: Int -> SF a (b, Event ()) -> SF a (b, Event())
+recur_ 1 sf = sf
+recur_ n sf = sf |>> recur_ (n-1) sf
+
+shotWait :: Time -> (a -> b) -> SF a (Event b, Event ())
+shotWait t f = proc a -> do
+  b <- arr f -< a
+  ev <- now () -< a
+  tev <- after t () -< a
+  returnA -< (tag ev b, tev)
