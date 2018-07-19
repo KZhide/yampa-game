@@ -1,15 +1,17 @@
 {-#LANGUAGE Arrows#-}
+{-#LANGUAGE NamedFieldPuns#-}
 module Shared where
 
 import FRP.Yampa
 import FRP.Yampa.Vector2
 import Defs
 import Data.Semigroup
+import ObjInput
 
-outOfArea :: Float -> Float -> Float -> Float -> SF Vec2 (Event ())
+outOfArea :: Float -> Float -> Float -> Float -> SF ObjState (Event ())
 outOfArea l r t b = arr (f l r t b) >>> edge
   where
-    f l r t b v = vector2X v < l || vector2X v > r || vector2Y v < b || vector2Y v > t
+    f l r t b ObjState{v, p} = vector2X v < l || vector2X v > r || vector2Y v < b || vector2Y v > t
 
 infixl 2 |=>>
 (|=>>) :: (b -> SF a (b, Event ())) -> (b -> SF a (b, Event ())) -> b -> SF a (b, Event ())
@@ -29,11 +31,11 @@ sf1 |<>| sf2 = proc a -> do
   ev <- edge <<<  arr (uncurry (&&)) -< (b1, b2)
   returnA -< (mergeBy (<>) evcolb1 evcolb2, ev)
 
-move :: Vec2 -> Vec2 -> SF a (Vec2, Event ())
-move v p = constant v >>> imIntegral p &&& constant NoEvent
+move :: ObjState -> SF a (ObjState, Event ())
+move ObjState{v, p} = constant v >>> (imIntegral p >>> arr (ObjState v)) &&& constant NoEvent
 
-moveDuring :: Time -> Vec2 -> Vec2 -> SF a (Vec2, Event ())
-moveDuring t v p = move v p >>> second (time >>> arr (>t) >>> edge)
+moveDuring :: Time -> ObjState -> SF a (ObjState, Event ())
+moveDuring t st@ObjState{v, p} = move st >>> second (time >>> arr (>t) >>> edge)
 
 wait_ :: Time -> SF a (Event b, Event ())
 wait_ t = constant NoEvent &&& after t ()

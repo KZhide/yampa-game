@@ -8,25 +8,22 @@ import FRP.Yampa.Vector2
 import qualified Graphics.Gloss.Interface.IO.Game as G
 import qualified Bullet as B
 import YampaGlossInterface
-
-data Input = Input {
-  pPos :: Vec2
-}
+import ObjInput
 
 data Output = Output {
-  pos :: Vec2,
+  state :: ObjState,
   bulletSpawn :: Event [B.Bullet],
   destroy :: Event ()
 }
 
-type Enemy = SF Input Output
+type Enemy = SF ObjInput Output
 
-enemy :: SF Input Vec2 -> SF (Input, Vec2) (Event [B.Bullet]) -> SF (Input, Vec2) (Event ()) -> Enemy
+enemy :: SF ObjInput ObjState -> SF (ObjInput, ObjState) (Event [B.Bullet]) -> SF (ObjInput, ObjState) (Event ()) -> Enemy
 enemy posSF bSpawnSF destroySF = proc i -> do
-  p <- posSF -< i
-  bsEv <- bSpawnSF -< (i, p)
-  dEv <- destroySF -< (i, p)
-  returnA -< Output p bsEv dEv
+  st <- posSF -< i
+  bsEv <- bSpawnSF -< (i, st)
+  dEv <- destroySF -< (i, st)
+  returnA -< Output st bsEv dEv
 
 draw :: Output -> Picture
-draw o = (transV2 . pos) o $ Color blue $ Circle 8.0
+draw o = (transV2 . p . state) o $ Color blue $ Circle 8.0

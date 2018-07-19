@@ -13,6 +13,7 @@ import Control.Monad
 import qualified Player as P
 import qualified Bullet as B
 import qualified Enemy as E
+import ObjInput
 import Stage
 import YampaGloss
 
@@ -24,7 +25,7 @@ main =
     (InWindow "Yampa Example" (640, 480) (200, 320))
     white
     30
-    (WorldState (P.Output zeroVector NoEvent) [] [])
+    (WorldState (P.Output (PlayerPos zeroVector) NoEvent) [] [])
     mainSF
     (\(WorldState p bos eos) -> Pictures $ P.draw p : fmap B.draw bos ++ fmap E.draw eos)
 
@@ -53,9 +54,9 @@ mainSF :: SF (Event G.Event) WorldState
 mainSF = proc e -> do
   so <- stage1 -< ()
   p <- P.player zeroVector -< (P.Input e)
-  let enemyInput = E.Input (P.pos p)
+  let objInput = ObjInput (P.pos p)
   rec
-    eos <- killSpawn -< (enemyInput, eSpawn so, fmap E.destroy eos)
-    bos <- killParSpawn -< ((), fmap E.bulletSpawn eos, fmap B.destroy bos)
+    eos <- killSpawn -< (objInput, eSpawn so, fmap E.destroy eos)
+    bos <- killParSpawn -< (objInput, fmap E.bulletSpawn eos ++ fmap B.spawn bos, fmap B.destroy bos)
   returnA -< WorldState p bos eos
 

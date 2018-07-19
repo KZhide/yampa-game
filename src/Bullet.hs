@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Bullet where
 import Defs
@@ -7,26 +8,28 @@ import FRP.Yampa
 import FRP.Yampa.Vector2
 import qualified Graphics.Gloss.Interface.IO.Game as G
 import Shared
+import ObjInput
 
-type Input = ()
-data Output = Output {pos :: Vec2, destroy :: Event ()} deriving (Eq, Show)
-type Bullet = SF Input Output
+data Output = Output {state :: ObjState, spawn :: Event [Bullet], destroy :: Event ()}
+type Bullet = SF ObjInput Output
 
 aim :: Vec2 -> Vec2 -> Vec2
 aim src dst | norm (dst ^-^ src) < 0.0001 = vector2 0.0 (-1.0)
             | otherwise = normalize (dst ^-^ src)
 
-bullet :: SF Input Vec2 -> SF (Input, Vec2) (Event ()) -> Bullet
-bullet posSF destroySF = proc i -> do
+bullet :: SF ObjInput ObjState -> SF (ObjInput, ObjState) (Event [Bullet]) -> SF (ObjInput, ObjState) (Event ()) -> Bullet
+bullet posSF spawnSF destroySF = proc i -> do
   p <- posSF -< i
+  spEv <- spawnSF -< (i, p)
   dEv <- destroySF -< (i, p)
-  returnA -< Output p dEv
+  returnA -< Output p spEv dEv
 
-aimingBullet :: Float -> Vec2 ->  Vec2 -> Bullet
-aimingBullet speed src dst = simpleBullet (speed *^ aim src dst) src
+aimingBullet :: Float -> (ObjInput, ObjState) -> Bullet
+aimingBullet speed (ObjInput (PlayerPos pp), ObjState{v, p}) =
+  simpleBullet ObjState{v = speed *^ aim p pp, p = p}
 
-simpleBullet :: Vec2 -> Vec2 -> SF Input Output
-simpleBullet v p0 = bullet (move v p0 >>> arr fst) (arr snd >>> outOfArea (-100.0) 100.0 100.0 (-100.0))
+simpleBullet :: ObjState -> Bullet
+simpleBullet st = bullet (move st >>> arr fst) never (arr snd >>> outOfArea (-100.0) 100.0 100.0 (-100.0))
 
 draw :: Output -> Picture
-draw o = (uncurry Translate . vector2XY . pos) o $ Circle 4.0
+draw o = (uncurry Translate . vector2XY . p . state) o $ Circle 4.0

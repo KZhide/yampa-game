@@ -1,23 +1,28 @@
 module Enemies.Boss1 where
 
 import qualified Bullet as B
-import qualified Enemy as E
+import Enemy (Enemy, enemy)
 import Bullets.NWay
 import FRP.Yampa
 import FRP.Yampa.Vector2
 import FRP.Yampa.VectorSpace
 import Defs
+import ObjInput
 import Shared
 import Data.Function ((&))
 
-boss1 :: E.Enemy
+boss1 :: Enemy
 boss1 =
-  E.enemy 
-    ((vector2 0.0 80.0 & move zeroVector) >>> arr fst)
-    (wait_ 0.3 |>> recur_ 2 (attack1 |>> wait_ 0.3) >>> arr fst)
+  enemy 
+    (move ObjState{p = vector2 0.0 (-80.0), v = zeroVector} >>> arr fst)
+    (wait_ 0.3 |>> recur_ 2 (attack2 |>> wait_ 0.3) >>> arr fst)
     (arr snd >>> oArea)
   where
     oArea = outOfArea (-100.0) 100.0 100.0 (-100.0)
-    fast3way :: SF (E.Input, Vec2) (Event [B.Bullet], Event ())
+    fast3way :: SF (ObjInput, Vec2) (Event [B.Bullet], Event ())
     fast3way = recur_ 4 (shotWait 0.3 (aimNWay 2 30.0 100.0)) |>> wait_ 0.2
     attack1 = recur_ 3 (shotWait 0.5 $ aimedAllWay 10 50.0) |<>| fast3way
+    bomb :: Vec2 -> (ObjInput, ObjState) -> [B.Bullet]
+    bomb v (_, ObjState{p=p}) = [B.bullet (move ObjState{v=v, p=p} >>> arr fst) (wait_ 0.6 |>> shotWait 0.3 (allWay 8 (vector2 0.0 (-40.0))) >>> arr fst) (after 0.6 ())]
+    attack2 :: SF (ObjInput, ObjState) (Event [B.Bullet], Event ())
+    attack2 = recur_ 10 (shotWait 1.3 $ bomb (vector2 10.0 (-30.0)))
