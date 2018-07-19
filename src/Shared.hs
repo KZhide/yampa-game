@@ -4,6 +4,7 @@ module Shared where
 import FRP.Yampa
 import FRP.Yampa.Vector2
 import Defs
+import Data.Semigroup
 
 outOfArea :: Float -> Float -> Float -> Float -> SF Vec2 (Event ())
 outOfArea l r t b = arr (f l r t b) >>> edge
@@ -18,6 +19,15 @@ infixl 2 |=>>
 (|>>) :: SF a (b, Event ()) -> SF a (b, Event ()) -> SF a (b, Event ())
 sf1 |>> sf2 =
   switch (sf1 >>> identity &&& arr (uncurry tagWith)) (const sf2)
+
+(|<>|) :: Semigroup b => SF a (Event b, Event ()) -> SF a (Event b, Event ()) -> SF a (Event b, Event ())
+sf1 |<>| sf2 = proc a -> do
+  (evcolb1, ev1) <- sf1 -< a
+  (evcolb2, ev2) <- sf2 -< a
+  b1 <- hold False <<< arr (fmap (const True)) -< ev1
+  b2 <- hold False <<< arr (fmap (const True)) -< ev2
+  ev <- edge <<<  arr (uncurry (&&)) -< (b1, b2)
+  returnA -< (mergeBy (<>) evcolb1 evcolb2, ev)
 
 move :: Vec2 -> Vec2 -> SF a (Vec2, Event ())
 move v p = constant v >>> imIntegral p &&& constant NoEvent
