@@ -51,10 +51,10 @@ data WorldState = WorldState {pOutput :: P.Output, bOutput :: [B.Output], eOutpu
 
 mainSF :: SF (Event G.Event) WorldState
 mainSF = proc e -> do
+  so <- stage1 -< ()
+  p <- P.player zeroVector -< (P.Input e)
+  let enemyInput = E.Input (P.pos p)
   rec
-    so <- stage1 -< ()
-    p <- P.player zeroVector -< (P.Input e)
-    let enemyInput = E.Input (P.pos p)
     eos <- killSpawn -< (enemyInput, eSpawn so, fmap E.destroy eos)
     bos <- killParSpawn -< ((), fmap E.bulletSpawn eos, fmap B.destroy bos)
   returnA -< WorldState p bos eos
