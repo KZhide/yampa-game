@@ -32,7 +32,7 @@ sf1 |<>| sf2 = proc a -> do
   returnA -< (mergeBy (<>) evcolb1 evcolb2, ev)
 
 move :: ObjState -> SF a (ObjState, Event ())
-move ObjState{v, p} = constant v >>> (imIntegral p >>> arr (ObjState v)) &&& constant NoEvent
+move ObjState{v, p} = constant v >>> (imIntegral p >>> arr (\p -> ObjState {v=v, p=p})) &&& constant NoEvent
 
 moveDuring :: Time -> ObjState -> SF a (ObjState, Event ())
 moveDuring t st@ObjState{v, p} = move st >>> second (time >>> arr (>t) >>> edge)
