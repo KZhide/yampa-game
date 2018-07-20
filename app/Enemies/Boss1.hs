@@ -13,13 +13,23 @@ import Shared
 import Data.Function ((&))
 
 boss1 :: Enemy
-boss1 =
-  enemy 
-    (move ObjState{p = vector2 0.0 80.0, v = zeroVector} >>> arr fst)
-    (wait_ 0.3 |>> recur_ 2 (attack2 |>> wait_ 0.3) >>> arr fst)
-    (arr snd >>> oArea)
+boss1 = ObjState {p = vector2 0.0 240.0, v = vector2 0.0 (-50.0)} & 
+  entrance |=>>
+  normalAttack |=>>
+  ret |=>>
+  attack1 |=>>
+  ret |=>>
+  attack2 |=>>
+  ret |=>>
+  bye
   where
-    oArea = outOfArea (-100.0) 100.0 100.0 (-100.0)
+    entrance st = enemy (st & moveDuring 1.0)
+  enemy 
+    (ObjState{p = vector2 0.0 80.0, v = vector2 0.0 (-20.0)} &
+      (moveDuring 0.5 |=>> rot 60.0 |=>> moveDuring 0.5 |=>> rot 60.0 |=>> moveDuring 3.0))
+    (wait_ 0.3 |>> recur_ 2 (attack2 |>> wait_ 0.3))
+    never
+  where
     fast3way :: SF (ObjInput, ObjState) (Event [B.Bullet], Event ())
     fast3way = recur_ 4 (shotWait 0.3 (aimNWay 2 30.0 100.0)) |>> wait_ 0.2
     attack1 = recur_ 3 (shotWait 0.5 $ aimedAllWay 10 50.0) |<>| fast3way

@@ -8,15 +8,17 @@ import Defs
 import Data.Semigroup
 import ObjInput
 
-outOfArea :: Float -> Float -> Float -> Float -> SF ObjState (Event ())
-outOfArea l r t b = arr (f l r t b) >>> edge
-  where
-    f l r t b ObjState{v, p} = vector2X v < l || vector2X v > r || vector2Y v < b || vector2Y v > t
+deg2rad :: Float -> Float
+deg2rad deg = deg / 360.0 * 2.0 * pi
+
+outOfArea :: ObjState -> Bool
+outOfArea ObjState{p} = let (x, y) = vector2XY p in
+  x < -320.0 || x > 320.0 || y < -240.0 || y > 240.0
 
 infixl 2 |=>>
 (|=>>) :: (b -> SF a (b, Event ())) -> (b -> SF a (b, Event ())) -> b -> SF a (b, Event ())
 (sfgen1 |=>> sfgen2) b =
-  dSwitch (sfgen1 b >>> identity &&& arr (uncurry tagWith)) sfgen2
+  switch (sfgen1 b >>> identity &&& arr (uncurry tagWith)) sfgen2
 
 (|>>) :: SF a (b, Event ()) -> SF a (b, Event ()) -> SF a (b, Event ())
 sf1 |>> sf2 =
@@ -34,8 +36,17 @@ sf1 |<>| sf2 = proc a -> do
 move :: ObjState -> SF a (ObjState, Event ())
 move ObjState{v, p} = constant v >>> (imIntegral p >>> arr (\p -> ObjState {v=v, p=p})) &&& constant NoEvent
 
+rot :: Float -> ObjState -> SF a (ObjState, Event ())
+rot degree ObjState{p, v} = constant ObjState{p, v = vector2Rotate (deg2rad degree) v} &&& now ()
+
+setV :: Vec2 -> ObjState -> SF a (ObjState, Event ())
+setV v' st = constant st{v = v'} &&& now ()
+
 moveDuring :: Time -> ObjState -> SF a (ObjState, Event ())
 moveDuring t st@ObjState{v, p} = move st >>> second (time >>> arr (>t) >>> edge)
+
+moveWhile :: (ObjState -> Bool) -> ObjState -> SF a (ObjState, Event ())
+moveWhile f st = move st >>> arr fst >>> identity &&& (arr f >>> edge)
 
 wait_ :: Time -> SF a (Event b, Event ())
 wait_ t = constant NoEvent &&& after t ()

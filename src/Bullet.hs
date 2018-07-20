@@ -29,7 +29,7 @@ aimingBullet speed (ObjInput (PlayerPos pp), ObjState{v, p}) =
   simpleBullet ObjState{v = speed *^ aim p pp, p = p}
 
 simpleBullet :: ObjState -> Bullet
-simpleBullet st = bullet (move st >>> arr fst) never (arr snd >>> outOfArea (-100.0) 100.0 100.0 (-100.0))
+simpleBullet st = bullet (move st >>> arr fst) never (arr (outOfArea . snd) >>> edge)
 
 draw :: Output -> Picture
 draw o = (uncurry Translate . vector2XY . p . state) o $ Circle 4.0
