@@ -16,13 +16,16 @@ outOfArea ObjState{p} = let (x, y) = vector2XY p in
   x < -320.0 || x > 320.0 || y < -240.0 || y > 240.0
 
 infixl 2 |=>>
-(|=>>) :: (b -> SF a (b, Event ())) -> (b -> SF a (b, Event ())) -> b -> SF a (b, Event ())
-(sfgen1 |=>> sfgen2) b =
-  switch (sfgen1 b >>> identity &&& arr (uncurry tagWith)) sfgen2
+(|=>>) :: SF a (b, Event ()) -> (b -> SF a (b, Event ())) -> SF a (b, Event ())
+sf |=>> f =
+  switch (sf >>> identity &&& arr (uncurry tagWith)) f
 
 (|>>) :: SF a (b, Event ()) -> SF a (b, Event ()) -> SF a (b, Event ())
 sf1 |>> sf2 =
   switch (sf1 >>> identity &&& arr (uncurry tagWith)) (const sf2)
+
+returnO :: b -> SF a (b, Event ())
+returnO b = constant b &&& now ()
 
 (|<>|) :: Semigroup b => SF a (Event b, Event ()) -> SF a (Event b, Event ()) -> SF a (Event b, Event ())
 sf1 |<>| sf2 = proc a -> do
@@ -52,8 +55,8 @@ wait_ :: Time -> SF a (Event b, Event ())
 wait_ t = constant NoEvent &&& after t ()
 
 recur :: Int -> (b -> SF a (b, Event ())) -> (b -> SF a (b, Event ()))
-recur 0 sf = \b -> (b, Event ()) --> constant (b, NoEvent)
-recur n sf = sf |=>> recur (n-1) sf
+recur 0 sf = returnO
+recur n sf = \b -> sf b |=>> recur (n-1) sf
 
 recur_ :: Int -> SF a (b, Event ()) -> SF a (b, Event())
 recur_ 1 sf = sf
