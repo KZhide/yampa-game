@@ -56,7 +56,7 @@ mainSF = proc e -> do
   p <- P.player zeroVector -< (P.Input e)
   let objInput = ObjInput (P.pos p)
   rec
-    eos <- killSpawn -< (objInput, eSpawn so, fmap snd eos)
-    bos <- killParSpawn -< (objInput, fmap (E.bulletSpawn.fst) eos ++ fmap B.spawn bos, fmap B.destroy bos)
-  returnA -< WorldState p bos (fmap fst eos)
+    eos <- killSpawn -< (objInput, eSpawn so, fmap (void.snd) eos)
+    bos <- killParSpawn -< (objInput, fmap (E.bulletSpawn.fst) eos ++ fmap (B.spawn.fst) bos, fmap (void.snd) bos)
+  returnA -< WorldState p (fmap fst bos) (fmap fst eos)
 
