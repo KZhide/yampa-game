@@ -10,6 +10,7 @@ import qualified Bullet as B
 import YampaGlossInterface
 import Control.Monad
 import ObjInput
+import Shared
 
 data Output = Output {
   state :: ObjState,
