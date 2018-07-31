@@ -12,4 +12,4 @@ import FRP.Yampa
 import Defs
 
 stage1 :: S.Stage
-stage1 = S.stage (after 0.2 [boss1])
+stage1 = S.stage (after 0.2 [(boss1, vector2 0.0 240.0)])

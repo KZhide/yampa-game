@@ -1,5 +1,8 @@
 {-#LANGUAGE Arrows#-}
 {-#LANGUAGE NamedFieldPuns#-}
+{-#LANGUAGE TupleSections#-}
+{-#LANGUAGE FlexibleInstances#-}
+{-#LANGUAGE MultiParamTypeClasses#-}
 module Shared where
 
 import FRP.Yampa
@@ -7,24 +10,50 @@ import FRP.Yampa.Vector2
 import Defs
 import Data.Semigroup
 import ObjInput
+import Control.Monad.State
 
 deg2rad :: Float -> Float
 deg2rad deg = deg / 360.0 * 2.0 * pi
 
-outOfArea :: ObjState -> Bool
-outOfArea ObjState{p} = let (x, y) = vector2XY p in
+outOfArea :: Vec2 -> Bool
+outOfArea p = let (x, y) = vector2XY p in
   x < -320.0 || x > 320.0 || y < -240.0 || y > 240.0
 
-infixl 2 |=>>
-(|=>>) :: SF a (b, Event c) -> (c -> SF a (b, Event d)) -> SF a (b, Event d)
-sf |=>> f =
-  switch (sf >>> (identity &&& never) *** identity) f
+newtype SFState i s a = SFState {runSFState :: s -> SF i (s, Event a)}
+sfstate = SFState
 
-(|>>) :: SF a (b, Event c) -> SF a (b, Event d) -> SF a (b, Event d)
-sf1 |>> sf2 = sf1 |=>> const sf2
+(|==>>) :: SFState i s a -> (a -> SFState i s b) -> SFState i s b
+sfst |==>> mf = SFState (runSFState sfst |==> (runSFState . mf))
+  where
+  (|==>) :: (b -> SF a (b, Event c)) -> (c -> b -> SF a (b, Event d)) -> b -> SF a (b, Event d)
+  (b2sf |==> cd2sf) b =
+    let sf =
+          proc a -> do
+            (b', evc) <- b2sf b -< a
+            returnA -< ((b', NoEvent), evc `attach` b')
+    in
+    switch sf (uncurry cd2sf)
 
-returnO :: b -> SF a (b, Event ())
-returnO b = constant b &&& now ()
+instance Functor (SFState i s) where
+  fmap f SFState {runSFState} = SFState ((>>> second (arr (fmap f))) . runSFState)
+
+sfconc :: SF (s, Event a) (s, Event b) -> SFState i s a -> SFState i s b
+sfconc sf sfst = sfstate ((>>> sf) . runSFState sfst)
+
+instance Applicative (SFState i s) where
+  pure a = SFState (\s -> constant s &&& now a)
+  sfst1 <*> sfst2 = sfst1 |==>> (\f -> fmap f sfst2)
+
+instance Monad (SFState i s) where
+  return a = SFState {runSFState = \s -> constant s &&& now a }
+  (>>=) = (|==>>)
+
+noReturn :: SFState i s a
+noReturn = sfstate (\s -> constant s &&& never)
+
+instance MonadState s (SFState i s) where
+  get = SFState (\s -> constant s &&& now s)
+  put s = SFState (\_ -> constant s &&& now ())
 
 (|<>|) :: Semigroup b => SF a (Event b, Event ()) -> SF a (Event b, Event ()) -> SF a (Event b, Event ())
 sf1 |<>| sf2 = proc a -> do
@@ -35,46 +64,43 @@ sf1 |<>| sf2 = proc a -> do
   ev <- edge <<<  arr (uncurry (&&)) -< (b1, b2)
   returnA -< (mergeBy (<>) evcolb1 evcolb2, ev)
 
-move :: ObjState -> SF a (ObjState, Event ObjState)
-move ObjState{v, p} = constant v >>> (imIntegral p >>> arr (\p -> ObjState {v=v, p=p})) &&& constant NoEvent
+infiniteIntegral :: VectorSpace s a => SF i s -> SFState i s ()
+infiniteIntegral sf = sfstate (\s -> sf >>> imIntegral s &&& never)
 
-rot :: Float -> ObjState -> SF a (ObjState, Event ObjState)
-rot degree ObjState{p, v} =
-  let newSt = ObjState{p, v = vector2Rotate (deg2rad degree) v} in
-  constant newSt &&& now newSt
+finiteIntegralWithDerivative :: VectorSpace s a => Time -> SF i s -> SFState i s s
+finiteIntegralWithDerivative t sf =
+  sfstate (\s ->
+    proc i -> do
+      dx <- sf -< i
+      x  <- imIntegral s -< dx
+      ev <- after t () -< i
+      returnA -< (x, ev `tag` dx)
+  )
 
-setV :: Vec2 -> ObjState -> SF a (ObjState, Event ObjState)
-setV v' st = constant st{v = v'} &&& now st{v = v'}
+rot :: Float -> Vec2 -> Vec2
+rot degree = vector2Rotate (deg2rad degree)
 
-moveDuring :: Time -> ObjState -> SF a (ObjState, Event ObjState)
-moveDuring t st@ObjState{v, p} = proc a -> do
-  (st', _) <- move st -< a
-  ev <- edge <<< arr (>t) <<< time -< a
-  returnA -< (st', ev `tag` st')
+move :: Vec2 -> SFState a Vec2 ()
+move v = infiniteIntegral (constant v)
 
-moveWhile :: (ObjState -> Bool) -> ObjState -> SF a (ObjState, Event ObjState)
-moveWhile f st = proc a -> do
-  (st', _) <- move st -< a
-  ev <- edge <<< arr f -< st'
-  returnA -< (st', ev `tag` st')
+moveDuring :: Time -> Vec2 -> SFState a Vec2 Vec2
+moveDuring t v = finiteIntegralWithDerivative t (constant v)
 
-moveTo :: Vec2 -> Time -> ObjState -> SF a (ObjState, Event ObjState)
-moveTo tgt t st@ObjState{v, p} = setV ((tgt ^-^ p) ^/ realToFrac t) st |=>> moveDuring t
+moveTo :: Time -> Vec2 -> SFState i Vec2 Vec2
+moveTo t tgt = do
+  src <- get
+  moveDuring t ((tgt ^-^ src) ^/ realToFrac t)
 
-wait_ :: Time -> SF a (Event b, Event ())
-wait_ t = constant NoEvent &&& after t ()
+oneshot :: (i -> s) -> SFState i (Event s) ()
+oneshot f = sfstate $
+  \_ ->
+    proc i -> do
+      s <- arr (uncurry tag) <<< now () &&& arr f -< i
+      ev <- now () -< ()
+      returnA -< (s, ev)
 
-recur :: Int -> (c -> SF a (b, Event c)) -> SF a (b, Event c) -> SF a (b, Event c)
-recur 0 sfgen sf = sf 
-recur n sfgen sf = recur (n-1) sfgen sf |=>> sfgen
+delayCalc :: Time -> a -> SFState i (Event e) a
+delayCalc t a = sfstate (\s -> (s, NoEvent) --> (never &&& after t a))
 
-recur_ :: Int -> SF a (b, Event ()) -> SF a (b, Event())
-recur_ 1 sf = sf
-recur_ n sf = sf |>> recur_ (n-1) sf
-
-shotWait :: Time -> (a -> b) -> SF a (Event b, Event ())
-shotWait t f = proc a -> do
-  b <- arr f -< a
-  ev <- now () -< a
-  tev <- after t () -< a
-  returnA -< (tag ev b, tev)
+sfPause :: Time -> a -> SFState i s a
+sfPause t a = sfstate (\s -> constant s &&& after t a)

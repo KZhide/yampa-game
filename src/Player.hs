@@ -31,7 +31,7 @@ bulletSpawn = proc (p, e) -> do
   where
     shotSF :: SF (PlayerPos, Bool) (Event [B.Bullet])
     shotSF = proc (PlayerPos p, b) -> do
-      let bs = [B.simpleBullet ObjState{v = vector2 0.0 30.0, p = p}]
+      let bs = [B.simpleBullet (vector2 0.0 30.0) p]
       ev <- repeatedly 0.1 () -< ()
       bsEv <- arr (uncurry tagWith) -< (bs, ev)
       returnA -< if b then bsEv else NoEvent

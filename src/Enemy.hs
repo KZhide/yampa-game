@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Enemy where
 import Defs
@@ -13,26 +14,29 @@ import ObjInput
 import Shared
 
 data Output = Output {
-  state :: ObjState,
+  pos :: Vec2,
   bulletSpawn :: Event [B.Bullet]
 }
 
-type Enemy = SF ObjInput (Output, Event ObjState)
+type Enemy = SFState ObjInput Output ()
 
-enemy :: SF ObjInput (ObjState, Event a) -> SF (ObjInput, ObjState) (Event [B.Bullet], Event b) -> SF (ObjInput, ObjState) (Event c) -> Enemy
-enemy posSF bSpawnSF destroySF = proc i -> do
-  (st, moveEnd) <- posSF -< i
-  (bsEv, bsEnd) <- bSpawnSF -< (i, st)
-  dEv <- destroySF -< (i, st)
-  returnA -< (Output st bsEv, (void moveEnd `lMerge` void dEv) `tag` st)
+runEnemy :: Enemy -> Vec2 -> SF ObjInput (Output, Event ())
+runEnemy e v = runSFState e (Output v NoEvent)
 
-enemyF ::
-  (ObjState -> SF ObjInput (ObjState, Event ObjState)) ->
-  SF (ObjInput, ObjState) (Event [B.Bullet], Event b) ->
-  SF (ObjInput, ObjState) (Event c) ->
-  ObjState -> Enemy
-enemyF posSFf bSpawnSF destroySF st = enemy (posSFf st) bSpawnSF destroySF
-enemyMoveF posSFf = enemyF posSFf (never &&& never) never
+enemy :: SFState ObjInput Vec2 ()
+  -> SFState (ObjInput, Vec2) (Event [B.Bullet]) ()
+  -> SFState (ObjInput, Vec2) () ()
+  -> Enemy
+enemy posSFState bSpawnSFState destroySFState =
+  sfstate (
+    \Output{pos} ->
+      proc i -> do
+        (p, moveEnd) <- runSFState posSFState pos -< i
+        (bsEv, bsEnd) <- runSFState bSpawnSFState NoEvent -< (i, p)
+        (_, dEv) <- runSFState destroySFState () -< (i, p)
+        returnA -< (Output p bsEv, moveEnd `lMerge` dEv))
+
+enemyMove posSFState = enemy posSFState (sfstate (const $ never &&& never)) (sfstate (const $ constant () &&& never))
 
 draw :: Output -> Picture
-draw o = (transV2 . p . state) o $ Color blue $ Circle 8.0
+draw o = (transV2 . pos) o $ Color blue $ Circle 8.0

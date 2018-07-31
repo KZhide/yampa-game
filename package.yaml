@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - gloss >= 1.11 && < 2
 - Yampa >= 0.10 && < 1
+- mtl >= 2.2 && < 3
 
 library:
   source-dirs: src
@@ -35,6 +36,7 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
     dependencies:
     - yampa-game
 
@@ -46,6 +48,7 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
     dependencies:
     - yampa-game
     - hspec
