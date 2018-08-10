@@ -12,6 +12,7 @@ import YampaGlossInterface
 import Control.Monad
 import ObjInput
 import Shared
+import SFState
 
 data Output = Output {
   pos :: Vec2,

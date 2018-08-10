@@ -1,5 +1,5 @@
 {-# LANGUAGE Arrows #-}
-module SimpleBullet where
+module Bullets.SimpleBullet where
 
 import FRP.Yampa
 

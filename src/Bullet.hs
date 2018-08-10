@@ -8,6 +8,7 @@ import FRP.Yampa
 import FRP.Yampa.Vector2
 import qualified Graphics.Gloss.Interface.IO.Game as G
 import Shared
+import SFState
 import ObjInput
 import Control.Monad
 

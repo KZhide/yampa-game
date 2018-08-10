@@ -4,7 +4,6 @@ module Main where
 import Prelude
 
 import Graphics.Gloss
-import Graphics.Gloss.Data.Picture
 import qualified Graphics.Gloss.Interface.IO.Game as G
 
 import FRP.Yampa
@@ -35,7 +34,7 @@ gatherDestroy evs | any isEvent evs = Event $ killMatch evs
   where
     killMatch :: [Event ()] -> [a] -> [a]
     killMatch [] l = l
-    killMatch (Event () : es) (x : xs) = killMatch es xs
+    killMatch (Event () : es) (_ : xs) = killMatch es xs
     killMatch (NoEvent : es) (x : xs) = x : killMatch es xs
 
 killSpawn :: SF (a, Event [SF a b], [Event ()]) [b]

@@ -12,6 +12,7 @@ import ObjInput
 import Shared
 import Data.Function ((&))
 import Control.Monad
+import SFState
 
 boss1 :: Enemy
 boss1 = do
@@ -20,7 +21,7 @@ boss1 = do
   enemy (void $ moveTo 3.0 (vector2 100.0 0.0)) attack1 (sfPause 3.0 ())
   ret
   enemy (move zeroVector) fast3way (sfPause 1.0 ())
-  enemy (move zeroVector) attack1 noReturn
+  enemy (move zeroVector) attack2 noReturn
   --normalAttack |=>>
   --ret |=>>
   --attack1 |=>>
